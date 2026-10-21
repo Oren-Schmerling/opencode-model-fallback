@@ -35,6 +35,8 @@ const fallbackDefaults = z.object({
   cooldownMs: z.number().min(10_000).optional(),
   retryOriginalAfterMs: z.number().min(10_000).optional(),
   maxFallbackDepth: z.number().int().min(1).max(10).optional(),
+  retriesBeforeFallback: z.number().int().min(0).max(10).optional(),
+  quarantineAfterFallbackMs: z.number().min(0).optional(),
 });
 
 const logPathSchema = z
@@ -149,7 +151,7 @@ export function parseConfig(raw: unknown): {
         }
       }
 
-      const depthResult = fallbackDefaults.shape.maxFallbackDepth.safeParse(
+const depthResult = fallbackDefaults.shape.maxFallbackDepth.safeParse(
         defaultsObj.maxFallbackDepth
       );
       if (defaultsObj.maxFallbackDepth !== undefined) {
@@ -160,6 +162,38 @@ export function parseConfig(raw: unknown): {
             const suffix = issue.path.length > 0 ? `.${formatPath(issue.path)}` : "";
             warnings.push(
               `Config warning at defaults.maxFallbackDepth${suffix}: ${issue.message} — using default`
+            );
+          }
+        }
+      }
+
+      const retriesResult = fallbackDefaults.shape.retriesBeforeFallback.safeParse(
+        defaultsObj.retriesBeforeFallback
+      );
+      if (defaultsObj.retriesBeforeFallback !== undefined) {
+        if (retriesResult.success && retriesResult.data !== undefined) {
+          parsedDefaults.retriesBeforeFallback = retriesResult.data;
+        } else if (!retriesResult.success) {
+          for (const issue of retriesResult.error.issues) {
+            const suffix = issue.path.length > 0 ? `.${formatPath(issue.path)}` : "";
+            warnings.push(
+              `Config warning at defaults.retriesBeforeFallback${suffix}: ${issue.message} — using default`
+            );
+          }
+        }
+      }
+
+      const quarantineResult = fallbackDefaults.shape.quarantineAfterFallbackMs.safeParse(
+        defaultsObj.quarantineAfterFallbackMs
+      );
+      if (defaultsObj.quarantineAfterFallbackMs !== undefined) {
+        if (quarantineResult.success && quarantineResult.data !== undefined) {
+          parsedDefaults.quarantineAfterFallbackMs = quarantineResult.data;
+        } else if (!quarantineResult.success) {
+          for (const issue of quarantineResult.error.issues) {
+            const suffix = issue.path.length > 0 ? `.${formatPath(issue.path)}` : "";
+            warnings.push(
+              `Config warning at defaults.quarantineAfterFallbackMs${suffix}: ${issue.message} — using default`
             );
           }
         }
@@ -266,13 +300,15 @@ export function mergeWithDefaults(raw: RawConfig): import("../types.js").PluginC
   const def = DEFAULT_CONFIG;
   const logPath = raw.logPath ? normalizeLogPath(raw.logPath) : def.logPath;
 
-  return {
+return {
     enabled: raw.enabled ?? def.enabled,
     defaults: {
-      fallbackOn: raw.defaults?.fallbackOn ?? def.defaults.fallbackOn,
-      cooldownMs: raw.defaults?.cooldownMs ?? def.defaults.cooldownMs,
-      retryOriginalAfterMs: raw.defaults?.retryOriginalAfterMs ?? def.defaults.retryOriginalAfterMs,
-      maxFallbackDepth: raw.defaults?.maxFallbackDepth ?? def.defaults.maxFallbackDepth,
+        fallbackOn: raw.defaults?.fallbackOn ?? def.defaults.fallbackOn,
+        cooldownMs: raw.defaults?.cooldownMs ?? def.defaults.cooldownMs,
+        retryOriginalAfterMs: raw.defaults?.retryOriginalAfterMs ?? def.defaults.retryOriginalAfterMs,
+        maxFallbackDepth: raw.defaults?.maxFallbackDepth ?? def.defaults.maxFallbackDepth,
+        retriesBeforeFallback: raw.defaults?.retriesBeforeFallback ?? def.defaults.retriesBeforeFallback,
+        quarantineAfterFallbackMs: raw.defaults?.quarantineAfterFallbackMs ?? def.defaults.quarantineAfterFallbackMs,
     },
     agents: raw.agents ?? def.agents,
     patterns: raw.patterns ?? def.patterns,
