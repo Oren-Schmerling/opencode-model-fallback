@@ -142,6 +142,77 @@ fallback:
     ]);
   });
 
+  it("accepts multi-segment, tilde, and colon model IDs from agent files", () => {
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      join(agentsDir, "openrouter.md"),
+      `---
+name: OpenRouterAgent
+fallback:
+  models:
+    - opencode/nemotron-3-ultra-free
+    - openrouter/openrouter/free
+    - openrouter/~deepseek/deepseek-flash-latest
+    - openrouter/anthropic/claude-3.5-sonnet:beta
+---
+`
+    );
+
+    const configs = loadAgentFallbackConfigs(dir, dir);
+    expect(configs["OpenRouterAgent"]).toBeDefined();
+    expect(configs["OpenRouterAgent"].fallbackModels).toEqual([
+      "opencode/nemotron-3-ultra-free",
+      "openrouter/openrouter/free",
+      "openrouter/~deepseek/deepseek-flash-latest",
+      "openrouter/anthropic/claude-3.5-sonnet:beta",
+    ]);
+  });
+
+  it("skips malformed keys but keeps OpenRouter-style entries", () => {
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      join(agentsDir, "malformed.md"),
+      `---
+name: MalformedAgent
+fallback:
+  models:
+    - ""
+    - opencode
+    - opencode/
+    - /model
+    - "opencode/ spaced"
+    - "opencode/ model"
+    - ${"p".repeat(101)}/model
+    - openrouter/~deepseek/deepseek-flash-latest
+---
+`
+    );
+
+    const configs = loadAgentFallbackConfigs(dir, dir);
+    expect(configs["MalformedAgent"]).toBeDefined();
+    expect(configs["MalformedAgent"].fallbackModels).toEqual([
+      "openrouter/~deepseek/deepseek-flash-latest",
+    ]);
+  });
+
+  it("accepts a model ID longer than 100 characters up to 200 from agent files", () => {
+    mkdirSync(agentsDir, { recursive: true });
+    const key = `opencode/${"m".repeat(150)}`;
+    writeFileSync(
+      join(agentsDir, "long-id.md"),
+      `---
+name: LongIdAgent
+fallback:
+  models:
+    - ${key}
+---
+`
+    );
+
+    const configs = loadAgentFallbackConfigs(dir, dir);
+    expect(configs["LongIdAgent"].fallbackModels).toEqual([key]);
+  });
+
   it("skips file entirely when all model keys are invalid", () => {
     mkdirSync(agentsDir, { recursive: true });
     writeFileSync(

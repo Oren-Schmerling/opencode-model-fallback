@@ -77,6 +77,8 @@ Minimal example:
 }
 ```
 
+Model IDs may contain `/`, `~`, and `:` (for example OpenRouter keys such as `openrouter/~deepseek/deepseek-flash-latest`).
+
 Most important knobs:
 
 - `defaults.fallbackOn` - which error categories trigger fallback

@@ -27,6 +27,65 @@ describe("parseConfig", () => {
     expect(warnings.length).toBeGreaterThan(0);
   });
 
+  it("accepts multi-segment, tilde, and colon model IDs", () => {
+    const keys = [
+      "opencode/nemotron-3-ultra-free",
+      "openrouter/openrouter/free",
+      "openrouter/~deepseek/deepseek-flash-latest",
+      "openrouter/anthropic/claude-3.5-sonnet:beta",
+    ];
+    const raw = {
+      agents: { "*": { fallbackModels: keys } },
+    };
+    const { config, warnings } = parseConfig(raw);
+    expect(warnings).toHaveLength(0);
+    expect(config.agents?.["*"].fallbackModels).toEqual(keys);
+  });
+
+  it("keeps an OpenRouter-style chain instead of dropping it", () => {
+    const raw = {
+      agents: {
+        build: {
+          fallbackModels: [
+            "openrouter/~deepseek/deepseek-flash-latest",
+            "openrouter/openrouter/free",
+          ],
+        },
+      },
+    };
+    const { config, warnings } = parseConfig(raw);
+    expect(warnings).toHaveLength(0);
+    expect(config.agents?.build.fallbackModels).toEqual([
+      "openrouter/~deepseek/deepseek-flash-latest",
+      "openrouter/openrouter/free",
+    ]);
+  });
+
+  it("rejects malformed model keys", () => {
+    const invalid = [
+      "",
+      "opencode",
+      "opencode/",
+      "/model",
+      "opencode/ spaced",
+      "opencode/ model",
+      `${"p".repeat(101)}/model`,
+    ];
+    for (const key of invalid) {
+      const raw = { agents: { "*": { fallbackModels: [key] } } };
+      const { warnings } = parseConfig(raw);
+      expect(warnings.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("accepts a model ID longer than 100 characters up to 200", () => {
+    const key = `opencode/${"m".repeat(150)}`;
+    const raw = { agents: { "*": { fallbackModels: [key] } } };
+    const { config, warnings } = parseConfig(raw);
+    expect(warnings).toHaveLength(0);
+    expect(config.agents?.["*"].fallbackModels).toEqual([key]);
+  });
+
   it("rejects cooldownMs below minimum", () => {
     const raw = {
       defaults: { cooldownMs: 100 },
